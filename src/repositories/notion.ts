@@ -1,12 +1,15 @@
 import { Client as NotionClient } from '@notionhq/client';
 import { Page, Tag } from '../domain';
 
-const DATABASE_ID_DB_INPUTS = 'xxx'
-const DATABASE_ID_DB_TAG = "xxx"
-
-export const fetchPageSummariesFromNotion = (client: NotionClient) => async (createdAfter: string): Promise<Page[]> => {
+export const fetchPageSummariesFromNotion = ({
+    client,
+    databaseId
+}: {
+    client: NotionClient,
+    databaseId: string
+}) => async (createdAfter: string): Promise<Page[]> => {
     const { results } = await client.databases.query({
-        database_id: DATABASE_ID_DB_INPUTS,
+        database_id: databaseId,
         filter: {
             and: [{
                 property: 'Summary',
@@ -34,9 +37,15 @@ export const fetchPageSummariesFromNotion = (client: NotionClient) => async (cre
     );
 }
 
-export const fetchPagesFromNotion = (client: NotionClient) => async (createdAfter: string): Promise<Page[]> => {
+export const fetchPagesFromNotion = ({
+    client,
+    databaseId
+}: {
+    client: NotionClient,
+    databaseId: string
+}) => async (createdAfter: string): Promise<Page[]> => {
     const { results } = await client.databases.query({
-        database_id: DATABASE_ID_DB_INPUTS,
+        database_id: databaseId,
         filter: {
             and: [{
                 property: 'Summary',
@@ -101,9 +110,15 @@ export const updatePageSummaryNotion = (client: NotionClient) => async (page: Pa
     });
 }
 
-export const fetchTagsFromNotion = (client: NotionClient) => async (limit: number) => {
+export const fetchTagsFromNotion = ({
+    client,
+    databaseId
+}: {
+    client: NotionClient,
+    databaseId: string
+}) => async (limit: number) => {
     const { results } = await client.databases.query({
-        database_id: DATABASE_ID_DB_TAG,
+        database_id: databaseId,
         sorts: [{
             property: 'Inputs',
             direction: 'descending',
@@ -126,10 +141,16 @@ export const fetchTagsFromNotion = (client: NotionClient) => async (limit: numbe
     });
 }
 
-export const createTagPageNotion = (client: NotionClient) => async (tag: Tag) => {
+const createTagPageNotion = ({
+    client,
+    databaseId
+}: {
+    client: NotionClient,
+    databaseId: string
+}) => async (tag: Tag) => {
     const { id } = await client.pages.create({
         parent: {
-            database_id: DATABASE_ID_DB_TAG,
+            database_id: databaseId,
         },
         properties: {
             Name: {
@@ -147,11 +168,17 @@ export const createTagPageNotion = (client: NotionClient) => async (tag: Tag) =>
     return { ...tag, id };
 }
 
-export const updatePageTagNotion = (client: NotionClient) => async (page: Page, tags: Tag[]) => {
+export const updatePageTagNotion = ({
+    client,
+    databaseId
+}: {
+    client: NotionClient,
+    databaseId: string
+}) => async (page: Page, tags: Tag[]) => {
     const latestTags = await Promise.all(
         tags.map(async (tag) => {
             const { results } = await client.databases.query({
-                database_id: DATABASE_ID_DB_TAG,
+                database_id: databaseId,
                 filter: {
                     property: 'Name',
                     rich_text: { equals: tag.name },
@@ -159,7 +186,7 @@ export const updatePageTagNotion = (client: NotionClient) => async (page: Page, 
                 page_size: 1,
             });
             if (results.length === 0) {
-                return await createTagPageNotion(client)(tag);
+                return await createTagPageNotion({client, databaseId})(tag);
             } else {
                 return { id: results[0].id, name: tag.name };
             }

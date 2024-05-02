@@ -9,9 +9,15 @@ export interface Tag {
     name: string;
 }
 
-export interface Repository {
+export interface BatchWriteSummaryDependencies {
     fetchPages: (from: string) => Promise<Page[]>;
     updatePageSummary: (page: Page, summary: string) => Promise<void>;
     createSummary: (page: Page) => Promise<string>;
-    fetchTags: (limit: number) => Promise<Tag[]>;
+}
+
+export interface BatchWriteTagDependencies {
+    fetchTags: (count: number) => Promise<Tag[]>;
+    fetchPages: (from: string) => Promise<Page[]>;
+    updatePageTag: (page: Page, tags: Tag[]) => Promise<void>;
+    createTag: (page: Page, tags: Tag[]) => Promise<Tag[]>;
 }

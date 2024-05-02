@@ -1,35 +1,49 @@
-import { Tag } from "./domain";
-import { oneMonthAgo } from "./lib/date";
-import { summarizeTextByDify, tagTextByDify } from "./repositories/dify";
-import { fetchPagesFromNotion, updatePageSummaryNotion, fetchTagsFromNotion, fetchPageSummariesFromNotion, updatePageTagNotion, createTagPageNotion } from "./repositories/notion";
-import { batchWriteSummaryFrom } from "./usecases/batchWriteSummaryFrom";
-
 import { Client as NotionClient } from '@notionhq/client';
 
+import { batchWriteSummary, batchWriteTag } from "./usecases";
+
+import {
+    fetchPagesFromNotion,
+    updatePageSummaryNotion,
+    fetchTagsFromNotion,
+    fetchPageSummariesFromNotion,
+    updatePageTagNotion
+} from "./repositories/notion";
+import { summarizeTextByDify, tagTextByDify } from "./repositories/dify";
+
+import { oneMonthAgo } from "./lib/date";
+
 const NOTION_TOKEN = 'xxx';
+const DATABASE_ID_DB_INPUTS = 'xxx'
+const DATABASE_ID_DB_TAG = "xxx"
+
+const DIFY_SUMMARIZE_API_KEY = "app-xxx";
+const DIFY_CATEGORY_API_KEY = "app-xxx";
+const DIFY_API_USER_NAME = "xxx";
 
 const notionClient = new NotionClient({
     auth: NOTION_TOKEN,
 });
 
-batchWriteSummaryFrom({
-    from: oneMonthAgo(),
-    repositories: {
-        fetchPages: fetchPagesFromNotion(notionClient),
-        createSummary: summarizeTextByDify,
-        updatePageSummary: updatePageSummaryNotion(notionClient),
-        fetchTags: fetchTagsFromNotion(notionClient),
-    }
-});
-
-fetchTagsFromNotion(notionClient)(50)
-    .then(async (tags: Tag[]) => {
-        const pages = await fetchPageSummariesFromNotion(notionClient)("2000-01-01");
-        console.log("count", pages.length);
-        for (const page of pages) {
-            const pageTags = await tagTextByDify(page, tags);
-            updatePageTagNotion(notionClient)(page, pageTags);
+async function main() {
+    await batchWriteSummary({
+        from: oneMonthAgo(),
+        deps: {
+            fetchPages: fetchPagesFromNotion({ client: notionClient, databaseId: DATABASE_ID_DB_INPUTS }),
+            updatePageSummary: updatePageSummaryNotion(notionClient),
+            createSummary: summarizeTextByDify({ user: DIFY_API_USER_NAME, apiKey: DIFY_SUMMARIZE_API_KEY }),
         }
-        return undefined;
-    })
-    .then(console.log);
+    });
+
+    await batchWriteTag({
+        from: oneMonthAgo(),
+        deps: {
+            fetchTags: fetchTagsFromNotion({ client: notionClient, databaseId: DATABASE_ID_DB_TAG }),
+            fetchPages: fetchPageSummariesFromNotion({ client: notionClient, databaseId: DATABASE_ID_DB_INPUTS }),
+            updatePageTag: updatePageTagNotion({ client: notionClient, databaseId: DATABASE_ID_DB_TAG }),
+            createTag: tagTextByDify({ user: DIFY_API_USER_NAME, apiKey: DIFY_CATEGORY_API_KEY })
+        }
+    });
+}
+
+main();
