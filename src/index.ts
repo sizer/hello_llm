@@ -1,5 +1,3 @@
-import { Client as NotionClient } from '@notionhq/client';
-
 import { batchWriteSummary, batchWriteTag } from "./usecases";
 
 import {
@@ -12,36 +10,27 @@ import {
 import { summarizeTextByDify, tagTextByDify } from "./repositories/dify";
 
 import { oneMonthAgo } from "./lib/date";
+import { config } from './config';
 
-const NOTION_TOKEN = 'xxx';
-const DATABASE_ID_DB_INPUTS = 'xxx'
-const DATABASE_ID_DB_TAG = "xxx"
-
-const DIFY_SUMMARIZE_API_KEY = "app-xxx";
-const DIFY_CATEGORY_API_KEY = "app-xxx";
-const DIFY_API_USER_NAME = "xxx";
-
-const notionClient = new NotionClient({
-    auth: NOTION_TOKEN,
-});
+const appConfig = config();
 
 async function main() {
     await batchWriteSummary({
         from: oneMonthAgo(),
         deps: {
-            fetchPages: fetchPagesFromNotion({ client: notionClient, databaseId: DATABASE_ID_DB_INPUTS }),
-            updatePageSummary: updatePageSummaryNotion(notionClient),
-            createSummary: summarizeTextByDify({ user: DIFY_API_USER_NAME, apiKey: DIFY_SUMMARIZE_API_KEY }),
+            fetchPages: fetchPagesFromNotion({ config: appConfig }),
+            updatePageSummary: updatePageSummaryNotion({ config: appConfig }),
+            createSummary: summarizeTextByDify({ config: appConfig }),
         }
     });
 
     await batchWriteTag({
         from: oneMonthAgo(),
         deps: {
-            fetchTags: fetchTagsFromNotion({ client: notionClient, databaseId: DATABASE_ID_DB_TAG }),
-            fetchPages: fetchPageSummariesFromNotion({ client: notionClient, databaseId: DATABASE_ID_DB_INPUTS }),
-            updatePageTag: updatePageTagNotion({ client: notionClient, databaseId: DATABASE_ID_DB_TAG }),
-            createTag: tagTextByDify({ user: DIFY_API_USER_NAME, apiKey: DIFY_CATEGORY_API_KEY })
+            fetchTags: fetchTagsFromNotion({ config: appConfig }),
+            fetchPages: fetchPageSummariesFromNotion({ config: appConfig }),
+            updatePageTag: updatePageTagNotion({ config: appConfig }),
+            createTag: tagTextByDify({ config: appConfig })
         }
     });
 }

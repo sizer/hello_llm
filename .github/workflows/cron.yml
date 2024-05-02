@@ -1,0 +1,26 @@
+name: Get Feed
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 14 * * *" # 12am AEST
+
+jobs:
+  get-rss-feed:
+    runs-on: ubuntu-latest
+    env:
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      DATABASE_ID_DB_INPUTS: ${{ secrets.DATABASE_ID_DB_INPUTS }}
+      DATABASE_ID_DB_TAG: ${{ secrets.DATABASE_ID_DB_TAG }}
+      DIFY_SUMMARIZE_API_KEY: ${{ secrets.DIFY_SUMMARIZE_API_KEY }}
+      DIFY_CATEGORY_API_KEY: ${{ secrets.DIFY_CATEGORY_API_KEY }}
+      DIFY_API_USER_NAME: hello_llm
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v3
+      name: Use Node.js 20
+      with:
+        node-version: 20
+        cache: 'npm'
+    - run: npm ci
+    - run: ./node_modules/.bin/ts-node ./src/index.ts

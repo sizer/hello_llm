@@ -1,13 +1,10 @@
 import { Client as NotionClient } from '@notionhq/client';
 import { Page, Tag } from '../domain';
+import { AppConfig } from '../config';
 
-export const fetchPageSummariesFromNotion = ({
-    client,
-    databaseId
-}: {
-    client: NotionClient,
-    databaseId: string
-}) => async (createdAfter: string): Promise<Page[]> => {
+export const fetchPageSummariesFromNotion = ({ config }: { config: AppConfig }) => async (createdAfter: string): Promise<Page[]> => {
+    const { client, databaseIdInputs: databaseId } = config.notion;
+
     const { results } = await client.databases.query({
         database_id: databaseId,
         filter: {
@@ -37,46 +34,43 @@ export const fetchPageSummariesFromNotion = ({
     );
 }
 
-export const fetchPagesFromNotion = ({
-    client,
-    databaseId
-}: {
-    client: NotionClient,
-    databaseId: string
-}) => async (createdAfter: string): Promise<Page[]> => {
-    const { results } = await client.databases.query({
-        database_id: databaseId,
-        filter: {
-            and: [{
-                property: 'Summary',
-                rich_text: { is_empty: true }
-            }, {
-                // Exclude YouTube videos, because they doesn't have text content
-                property: 'Source',
-                select: { does_not_equal: 'YouTube' }
-            }, {
-                property: 'Created',
-                date: { on_or_after: createdAfter }
-            }]
-        },
-        sorts: [{
-            property: 'Updated',
-            direction: 'ascending',
-        }],
-        page_size: 100,
-    });
+export const fetchPagesFromNotion = ({ config }: { config: AppConfig }) =>
+    async (createdAfter: string): Promise<Page[]> => {
+        const { client, databaseIdInputs: databaseId } = config.notion;
 
-    return Promise.all(
-        results.map(async ({ id }) => {
-            const pageContentData = await fetchPageContentFromNotionAsText(client, id);
-            if (pageContentData === '') {
-                console.log('No content found for page:', id);
-                return undefined;
-            }
-            return { id, content: pageContentData };
-        })
-    ).then((pages) => pages.filter((page): page is Page => page !== undefined));
-};
+        const { results } = await client.databases.query({
+            database_id: databaseId,
+            filter: {
+                and: [{
+                    property: 'Summary',
+                    rich_text: { is_empty: true }
+                }, {
+                    // Exclude YouTube videos, because they doesn't have text content
+                    property: 'Source',
+                    select: { does_not_equal: 'YouTube' }
+                }, {
+                    property: 'Created',
+                    date: { on_or_after: createdAfter }
+                }]
+            },
+            sorts: [{
+                property: 'Updated',
+                direction: 'ascending',
+            }],
+            page_size: 100,
+        });
+
+        return Promise.all(
+            results.map(async ({ id }) => {
+                const pageContentData = await fetchPageContentFromNotionAsText(client, id);
+                if (pageContentData === '') {
+                    console.log('No content found for page:', id);
+                    return undefined;
+                }
+                return { id, content: pageContentData };
+            })
+        ).then((pages) => pages.filter((page): page is Page => page !== undefined));
+    };
 
 const fetchPageContentFromNotionAsText = async (client: NotionClient, pageId: string): Promise<string> => {
     const pageContentData = await client.blocks.children.list({
@@ -93,7 +87,9 @@ const fetchPageContentFromNotionAsText = async (client: NotionClient, pageId: st
     return pageContentString;
 };
 
-export const updatePageSummaryNotion = (client: NotionClient) => async (page: Page, summary: string) => {
+export const updatePageSummaryNotion = ({ config }: { config: AppConfig }) => async (page: Page, summary: string) => {
+    const { client } = config.notion;
+
     await client.pages.update({
         page_id: page.id,
         properties: {
@@ -110,13 +106,9 @@ export const updatePageSummaryNotion = (client: NotionClient) => async (page: Pa
     });
 }
 
-export const fetchTagsFromNotion = ({
-    client,
-    databaseId
-}: {
-    client: NotionClient,
-    databaseId: string
-}) => async (limit: number) => {
+export const fetchTagsFromNotion = ({ config }: { config: AppConfig }) => async (limit: number) => {
+    const { client, databaseIdTag: databaseId } = config.notion;
+
     const { results } = await client.databases.query({
         database_id: databaseId,
         sorts: [{
@@ -141,13 +133,9 @@ export const fetchTagsFromNotion = ({
     });
 }
 
-const createTagPageNotion = ({
-    client,
-    databaseId
-}: {
-    client: NotionClient,
-    databaseId: string
-}) => async (tag: Tag) => {
+const createTagPageNotion = ({ config }: { config: AppConfig }) => async (tag: Tag) => {
+    const { client, databaseIdTag: databaseId } = config.notion;
+
     const { id } = await client.pages.create({
         parent: {
             database_id: databaseId,
@@ -168,13 +156,9 @@ const createTagPageNotion = ({
     return { ...tag, id };
 }
 
-export const updatePageTagNotion = ({
-    client,
-    databaseId
-}: {
-    client: NotionClient,
-    databaseId: string
-}) => async (page: Page, tags: Tag[]) => {
+export const updatePageTagNotion = ({ config }: { config: AppConfig }) => async (page: Page, tags: Tag[]) => {
+    const { client, databaseIdInputs: databaseId } = config.notion;
+
     const latestTags = await Promise.all(
         tags.map(async (tag) => {
             const { results } = await client.databases.query({
@@ -186,7 +170,7 @@ export const updatePageTagNotion = ({
                 page_size: 1,
             });
             if (results.length === 0) {
-                return await createTagPageNotion({client, databaseId})(tag);
+                return await createTagPageNotion({ config })(tag);
             } else {
                 return { id: results[0].id, name: tag.name };
             }
